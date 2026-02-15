@@ -635,7 +635,18 @@
         
         // Save items to storage
         function saveItems(items) {
-            localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
+            try {
+                localStorage.setItem(ITEMS_KEY, JSON.stringify(items));
+                return true;
+            } catch (error) {
+                console.error('Error saving to localStorage:', error);
+                if (error.name === 'QuotaExceededError') {
+                    alert('Storage is full! Please delete some items or photos to free up space.');
+                } else {
+                    alert('Error saving data: ' + error.message);
+                }
+                return false;
+            }
         }
         
         // Load categories from storage
@@ -646,18 +657,27 @@
             }
             // Default categories
             return [
-                { name: 'Tops', target: null, subcategories: [] },
-                { name: 'Bottoms', target: null, subcategories: [] },
-                { name: 'Dresses', target: null, subcategories: [] },
                 { name: 'Outerwear', target: null, subcategories: [] },
-                { name: 'Shoes', target: null, subcategories: [] },
-                { name: 'Accessories', target: null, subcategories: [] }
+                { name: 'Jeans, Trousers & Shorts', target: null, subcategories: [] },
+                { name: 'T-Shirts, Sweats & Bra/Tank Tops', target: null, subcategories: [] },
+                { name: 'Loungewear & Pajamas', target: null, subcategories: [] },
+                { name: 'Shorts & Blouses', target: null, subcategories: [] },
+                { name: 'Dresses & Skirts', target: null, subcategories: [] },
+                { name: 'Accessories', target: null, subcategories: [] },
+                { name: 'Sport Utility Wear', target: null, subcategories: [] }
             ];
         }
         
         // Save categories to storage
         function saveCategories(categories) {
-            localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
+            try {
+                localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
+                return true;
+            } catch (error) {
+                console.error('Error saving categories:', error);
+                alert('Error saving categories: ' + error.message);
+                return false;
+            }
         }
         
         // Switch between tabs
@@ -1116,32 +1136,16 @@
         }
         
         // Handle tag input
-        document.getElementById('tagInput').addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                const tag = this.value.trim();
-                if (tag && !currentTags.includes(tag)) {
-                    currentTags.push(tag);
-                    updateTagDisplay();
-                    this.value = '';
-                }
-            }
-        });
-        
-        // Update tag display
-        function updateTagDisplay() {
-            const container = document.getElementById('tagContainer');
-            const input = document.getElementById('tagInput');
+        function setupTagInput() {
+            const tagInput = document.getElementById('tagInput');
+            if (!tagInput) return;
             
-            container.innerHTML = currentTags.map((tag, index) => `
-                <span class="tag">
-                    ${tag}
-                    <span class="tag-remove" onclick="removeTag(${index})">×</span>
-                </span>
-            `).join('') + input.outerHTML;
+            // Remove any existing listeners by cloning the element
+            const newTagInput = tagInput.cloneNode(true);
+            tagInput.parentNode.replaceChild(newTagInput, tagInput);
             
-            // Re-attach event listener
-            document.getElementById('tagInput').addEventListener('keydown', function(e) {
+            // Add fresh event listener
+            newTagInput.addEventListener('keydown', function(e) {
                 if (e.key === 'Enter') {
                     e.preventDefault();
                     const tag = this.value.trim();
@@ -1152,6 +1156,23 @@
                     }
                 }
             });
+        }
+        
+        // Update tag display
+        function updateTagDisplay() {
+            const container = document.getElementById('tagContainer');
+            
+            const tagsHTML = currentTags.map((tag, index) => `
+                <span class="tag">
+                    ${tag}
+                    <span class="tag-remove" onclick="removeTag(${index})">×</span>
+                </span>
+            `).join('');
+            
+            container.innerHTML = tagsHTML + '<input type="text" class="tag-input" id="tagInput" placeholder="Type tag and press Enter">';
+            
+            // Reattach event listener
+            setupTagInput();
         }
         
         // Remove tag
@@ -1214,12 +1235,23 @@
                     
                     const items = loadItems();
                     items.push(newItem);
-                    saveItems(items);
+                    const saved = saveItems(items);
                     
-                    // Reset form
+                    if (!saved) {
+                        resetButton();
+                        return;
+                    }
+                    
+                    // Reset form properly
                     document.getElementById('addItemForm').reset();
                     currentTags = [];
-                    updateTagDisplay();
+                    
+                    // Reset tag display
+                    const tagContainer = document.getElementById('tagContainer');
+                    tagContainer.innerHTML = '<input type="text" class="tag-input" id="tagInput" placeholder="Type tag and press Enter">';
+                    setupTagInput();
+                    
+                    // Hide subcategory dropdown
                     document.getElementById('subcategoryGroup').style.display = 'none';
                     
                     // Reset button
@@ -1235,7 +1267,7 @@
                 } catch (error) {
                     console.error('Error saving item:', error);
                     resetButton();
-                    alert('Error saving item. Please try again.');
+                    alert('Error saving item: ' + error.message);
                 }
             }
             
@@ -1346,6 +1378,7 @@
         });
         
         // Initial setup
+        setupTagInput();
         updateCategorySelect();
         updateCategoryFilter();
         displayItems();
