@@ -502,9 +502,9 @@
         
         <!-- Tabs -->
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('wardrobe')">Wardrobe</button>
-            <button class="tab" onclick="switchTab('add')">Add Item</button>
-            <button class="tab" onclick="switchTab('categories')">Categories</button>
+            <button class="tab active" onclick="switchTab('wardrobe', this)">Wardrobe</button>
+            <button class="tab" onclick="switchTab('add', this)">Add Item</button>
+            <button class="tab" onclick="switchTab('categories', this)">Categories</button>
         </div>
         
         <!-- Wardrobe Tab -->
@@ -663,10 +663,21 @@
         }
         
         // Switch between tabs
-        function switchTab(tabName) {
+        function switchTab(tabName, clickedElement) {
             // Update tab buttons
             document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-            event.target.classList.add('active');
+            
+            // If called from a button click, highlight that button
+            if (clickedElement) {
+                clickedElement.classList.add('active');
+            } else {
+                // If called programmatically, find and highlight the correct tab
+                document.querySelectorAll('.tab').forEach(tab => {
+                    if (tab.textContent.toLowerCase().includes(tabName)) {
+                        tab.classList.add('active');
+                    }
+                });
+            }
             
             // Update tab content
             document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
