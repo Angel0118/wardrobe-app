@@ -43,6 +43,12 @@
             font-size: 20px;
         }
         
+        h3 {
+            color: #555;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
         .tabs {
             display: flex;
             gap: 10px;
@@ -172,6 +178,14 @@
             background: #D70015;
         }
         
+        .button-warning {
+            background: #FF9500;
+        }
+        
+        .button-warning:hover {
+            background: #CC7700;
+        }
+        
         .wardrobe-grid {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
@@ -187,6 +201,11 @@
             position: relative;
         }
         
+        .item-card.archived {
+            opacity: 0.6;
+            border-color: #ccc;
+        }
+        
         .item-card.low-usage {
             border: 2px solid #FF9500;
             background: #FFF9F0;
@@ -197,6 +216,18 @@
             top: 5px;
             right: 5px;
             background: #FF9500;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        
+        .archived-badge {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: #8E8E93;
             color: white;
             padding: 3px 8px;
             border-radius: 10px;
@@ -223,6 +254,11 @@
             font-size: 14px;
         }
         
+        .item-subcategory {
+            color: #999;
+            font-size: 12px;
+        }
+        
         .item-tags {
             margin-top: 5px;
             display: flex;
@@ -245,11 +281,31 @@
             margin-top: 5px;
         }
         
+        .item-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 8px;
+        }
+        
         .wear-button {
             background: #34C759;
             padding: 6px 12px;
             font-size: 14px;
-            margin-top: 8px;
+            flex: 1;
+        }
+        
+        .archive-button {
+            background: #8E8E93;
+            padding: 6px 12px;
+            font-size: 14px;
+            flex: 1;
+        }
+        
+        .unarchive-button {
+            background: #007AFF;
+            padding: 6px 12px;
+            font-size: 14px;
+            flex: 1;
         }
         
         .category-list {
@@ -262,9 +318,13 @@
             background: #f9f9f9;
             padding: 15px;
             border-radius: 8px;
+        }
+        
+        .category-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 10px;
         }
         
         .category-info {
@@ -296,6 +356,27 @@
             gap: 5px;
         }
         
+        .subcategory-list {
+            margin-top: 10px;
+            padding-left: 15px;
+            border-left: 3px solid #e0e0e0;
+        }
+        
+        .subcategory-item {
+            padding: 8px;
+            background: white;
+            border-radius: 5px;
+            margin-bottom: 5px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .subcategory-name {
+            font-size: 14px;
+            color: #555;
+        }
+        
         .button-small {
             padding: 6px 12px;
             font-size: 14px;
@@ -313,11 +394,45 @@
             margin-bottom: 10px;
         }
         
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .checkbox-group input[type="checkbox"] {
+            width: auto;
+        }
+        
         .empty-state {
             grid-column: 1/-1;
             text-align: center;
             color: #999;
             padding: 40px 20px;
+        }
+        
+        .subcategory-input-section {
+            margin-top: 15px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+        }
+        
+        .subcategory-inputs {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .subcategory-input-row {
+            display: flex;
+            gap: 5px;
+            align-items: center;
+        }
+        
+        .subcategory-input-row input {
+            flex: 1;
         }
     </style>
 </head>
@@ -342,6 +457,11 @@
                         <option value="">All Categories</option>
                     </select>
                 </div>
+                
+                <div class="filter-group checkbox-group">
+                    <input type="checkbox" id="showArchived" onchange="displayItems()">
+                    <label for="showArchived" style="margin: 0;">Show archived items</label>
+                </div>
             </div>
             
             <h2>My Items</h2>
@@ -362,8 +482,15 @@
                     
                     <div class="form-group">
                         <label for="category">Category *</label>
-                        <select id="category" required>
+                        <select id="category" required onchange="updateSubcategorySelect()">
                             <option value="">Select category</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group" id="subcategoryGroup" style="display: none;">
+                        <label for="subcategory">Subcategory</label>
+                        <select id="subcategory">
+                            <option value="">Select subcategory (optional)</option>
                         </select>
                     </div>
                     
@@ -399,6 +526,16 @@
                         <label for="categoryTarget">Target Number of Items (Optional)</label>
                         <input type="number" id="categoryTarget" min="0" placeholder="e.g., 10">
                         <small style="color: #666;">Leave empty for no limit. Items least worn will be highlighted if you exceed this target.</small>
+                    </div>
+                    
+                    <div class="subcategory-input-section">
+                        <h3>Subcategories (Optional)</h3>
+                        <div class="subcategory-inputs" id="subcategoryInputs">
+                            <div class="subcategory-input-row">
+                                <input type="text" placeholder="e.g., Long Sleeve" class="subcategory-input">
+                                <button type="button" class="button-secondary button-small" onclick="addSubcategoryInput()">+ Add More</button>
+                            </div>
+                        </div>
                     </div>
                     
                     <button type="submit">Add Category</button>
@@ -439,12 +576,12 @@
             }
             // Default categories
             return [
-                { name: 'T-shirts', target: 10 },
-                { name: 'Trousers', target: 10 },
-                { name: 'Jeans', target: 5 },
-                { name: 'Shirts', target: 10 },
-                { name: 'Puffer jackets', target: 2 },
-                { name: 'Dresses', target: 5 }
+                { name: 'Tops', target: null, subcategories: [] },
+                { name: 'Bottoms', target: null, subcategories: [] },
+                { name: 'Dresses', target: null, subcategories: [] },
+                { name: 'Outerwear', target: null, subcategories: [] },
+                { name: 'Shoes', target: null, subcategories: [] },
+                { name: 'Accessories', target: null, subcategories: [] }
             ];
         }
         
@@ -482,6 +619,24 @@
                 categories.map(cat => `<option value="${cat.name}">${cat.name}</option>`).join('');
         }
         
+        // Update subcategory select based on selected category
+        function updateSubcategorySelect() {
+            const categoryName = document.getElementById('category').value;
+            const categories = loadCategories();
+            const category = categories.find(c => c.name === categoryName);
+            
+            const subcategoryGroup = document.getElementById('subcategoryGroup');
+            const subcategorySelect = document.getElementById('subcategory');
+            
+            if (category && category.subcategories && category.subcategories.length > 0) {
+                subcategoryGroup.style.display = 'block';
+                subcategorySelect.innerHTML = '<option value="">Select subcategory (optional)</option>' +
+                    category.subcategories.map(sub => `<option value="${sub}">${sub}</option>`).join('');
+            } else {
+                subcategoryGroup.style.display = 'none';
+            }
+        }
+        
         // Update category filter
         function updateCategoryFilter() {
             const categories = loadCategories();
@@ -502,7 +657,7 @@
                 if (category.target) {
                     const categoryItems = items
                         .map((item, index) => ({ ...item, originalIndex: index }))
-                        .filter(item => item.category === category.name);
+                        .filter(item => item.category === category.name && !item.archived);
                     
                     if (categoryItems.length > category.target) {
                         // Sort by wear count (ascending)
@@ -525,36 +680,69 @@
             const items = loadItems();
             const grid = document.getElementById('wardrobeGrid');
             const filterCategory = document.getElementById('filterCategory').value;
+            const showArchived = document.getElementById('showArchived').checked;
             const highlighted = getItemsToHighlight();
             
-            const filteredItems = filterCategory 
-                ? items.filter(item => item.category === filterCategory)
-                : items;
+            let filteredItems = items;
+            
+            // Filter by category
+            if (filterCategory) {
+                filteredItems = filteredItems.filter(item => item.category === filterCategory);
+            }
+            
+            // Filter by archived status
+            if (!showArchived) {
+                filteredItems = filteredItems.filter(item => !item.archived);
+            }
             
             if (filteredItems.length === 0) {
                 grid.innerHTML = '<div class="empty-state">No items yet. Add your first clothing item!</div>';
                 return;
             }
             
-            grid.innerHTML = filteredItems.map((item, displayIndex) => {
+            grid.innerHTML = filteredItems.map((item) => {
                 const originalIndex = items.indexOf(item);
                 const isHighlighted = highlighted.has(originalIndex);
                 
                 return `
-                <div class="item-card ${isHighlighted ? 'low-usage' : ''}">
-                    ${isHighlighted ? '<div class="low-usage-badge">Consider removing</div>' : ''}
+                <div class="item-card ${isHighlighted ? 'low-usage' : ''} ${item.archived ? 'archived' : ''}">
+                    ${item.archived ? '<div class="archived-badge">Archived</div>' : ''}
+                    ${isHighlighted && !item.archived ? '<div class="low-usage-badge">Consider removing</div>' : ''}
                     <img src="${item.photo || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="150" height="150"%3E%3Crect fill="%23f0f0f0" width="150" height="150"/%3E%3Ctext x="50%" y="50%" text-anchor="middle" dy=".3em" fill="%23999"%3ENo Photo%3C/text%3E%3C/svg%3E'}" alt="${item.name}">
                     <div class="item-name">${item.name}</div>
                     <div class="item-category">${item.category}</div>
+                    ${item.subcategory ? `<div class="item-subcategory">${item.subcategory}</div>` : ''}
                     ${item.tags && item.tags.length > 0 ? `
                         <div class="item-tags">
                             ${item.tags.map(tag => `<span class="item-tag">${tag}</span>`).join('')}
                         </div>
                     ` : ''}
                     <div class="item-uses">Worn ${item.wearCount || 0} times</div>
-                    <button class="wear-button" onclick="logWear(${originalIndex})">Wore Today</button>
+                    <div class="item-actions">
+                        ${!item.archived ? `<button class="wear-button" onclick="logWear(${originalIndex})">Wore Today</button>` : ''}
+                        ${!item.archived ? `<button class="archive-button" onclick="archiveItem(${originalIndex})">Archive</button>` : ''}
+                        ${item.archived ? `<button class="unarchive-button" onclick="unarchiveItem(${originalIndex})">Unarchive</button>` : ''}
+                    </div>
                 </div>
             `}).join('');
+        }
+        
+        // Archive an item
+        function archiveItem(index) {
+            const items = loadItems();
+            items[index].archived = true;
+            saveItems(items);
+            displayItems();
+            alert(`${items[index].name} has been archived!`);
+        }
+        
+        // Unarchive an item
+        function unarchiveItem(index) {
+            const items = loadItems();
+            items[index].archived = false;
+            saveItems(items);
+            displayItems();
+            alert(`${items[index].name} has been unarchived!`);
         }
         
         // Display categories
@@ -569,22 +757,35 @@
             }
             
             list.innerHTML = categories.map((category, index) => {
-                const itemCount = items.filter(item => item.category === category.name).length;
+                const itemCount = items.filter(item => item.category === category.name && !item.archived).length;
                 const isOverTarget = category.target && itemCount > category.target;
                 
                 return `
                 <div class="category-item">
-                    <div class="category-info">
-                        <div class="category-name">${category.name}</div>
-                        <div class="category-stats">
-                            ${itemCount} items
-                            ${category.target ? ` | Target: <span class="${isOverTarget ? 'category-over-target' : 'category-target'}">${category.target}</span>` : ''}
-                            ${isOverTarget ? ` (${itemCount - category.target} over)` : ''}
+                    <div class="category-header">
+                        <div class="category-info">
+                            <div class="category-name">${category.name}</div>
+                            <div class="category-stats">
+                                ${itemCount} items
+                                ${category.target ? ` | Target: <span class="${isOverTarget ? 'category-over-target' : 'category-target'}">${category.target}</span>` : ''}
+                                ${isOverTarget ? ` (${itemCount - category.target} over)` : ''}
+                            </div>
+                        </div>
+                        <div class="category-actions">
+                            <button class="button-danger button-small" onclick="deleteCategory(${index})">Delete</button>
                         </div>
                     </div>
-                    <div class="category-actions">
-                        <button class="button-danger button-small" onclick="deleteCategory(${index})">Delete</button>
-                    </div>
+                    ${category.subcategories && category.subcategories.length > 0 ? `
+                        <div class="subcategory-list">
+                            <h3>Subcategories:</h3>
+                            ${category.subcategories.map((sub, subIndex) => `
+                                <div class="subcategory-item">
+                                    <span class="subcategory-name">${sub}</span>
+                                    <button class="button-danger button-small" onclick="deleteSubcategory(${index}, ${subIndex})">×</button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
                 </div>
             `}).join('');
         }
@@ -611,6 +812,32 @@
             displayCategories();
             updateCategorySelect();
             updateCategoryFilter();
+        }
+        
+        // Delete subcategory
+        function deleteSubcategory(categoryIndex, subcategoryIndex) {
+            const categories = loadCategories();
+            const subcategoryName = categories[categoryIndex].subcategories[subcategoryIndex];
+            
+            if (!confirm(`Delete subcategory "${subcategoryName}"?`)) {
+                return;
+            }
+            
+            categories[categoryIndex].subcategories.splice(subcategoryIndex, 1);
+            saveCategories(categories);
+            displayCategories();
+        }
+        
+        // Add subcategory input field
+        function addSubcategoryInput() {
+            const container = document.getElementById('subcategoryInputs');
+            const newRow = document.createElement('div');
+            newRow.className = 'subcategory-input-row';
+            newRow.innerHTML = `
+                <input type="text" placeholder="e.g., Short Sleeve" class="subcategory-input">
+                <button type="button" class="button-danger button-small" onclick="this.parentElement.remove()">×</button>
+            `;
+            container.appendChild(newRow);
         }
         
         // Log that an item was worn
@@ -682,6 +909,7 @@
             
             const name = document.getElementById('itemName').value;
             const category = document.getElementById('category').value;
+            const subcategory = document.getElementById('subcategory').value;
             const photoInput = document.getElementById('photo');
             
             // Handle photo
@@ -692,11 +920,13 @@
                     const newItem = {
                         name: name,
                         category: category,
+                        subcategory: subcategory || null,
                         tags: [...currentTags],
                         photo: e.target.result,
                         dateAdded: new Date().toISOString(),
                         wearCount: 0,
-                        wearHistory: []
+                        wearHistory: [],
+                        archived: false
                     };
                     
                     const items = loadItems();
@@ -707,6 +937,7 @@
                     document.getElementById('addItemForm').reset();
                     currentTags = [];
                     updateTagDisplay();
+                    document.getElementById('subcategoryGroup').style.display = 'none';
                     
                     alert('Item added successfully!');
                     switchTab('wardrobe');
@@ -718,11 +949,13 @@
                 const newItem = {
                     name: name,
                     category: category,
+                    subcategory: subcategory || null,
                     tags: [...currentTags],
                     photo: null,
                     dateAdded: new Date().toISOString(),
                     wearCount: 0,
-                    wearHistory: []
+                    wearHistory: [],
+                    archived: false
                 };
                 
                 const items = loadItems();
@@ -733,6 +966,7 @@
                 document.getElementById('addItemForm').reset();
                 currentTags = [];
                 updateTagDisplay();
+                document.getElementById('subcategoryGroup').style.display = 'none';
                 
                 alert('Item added successfully!');
                 switchTab('wardrobe');
@@ -746,6 +980,12 @@
             const name = document.getElementById('categoryName').value;
             const target = document.getElementById('categoryTarget').value;
             
+            // Collect subcategories
+            const subcategoryInputs = document.querySelectorAll('.subcategory-input');
+            const subcategories = Array.from(subcategoryInputs)
+                .map(input => input.value.trim())
+                .filter(val => val !== '');
+            
             const categories = loadCategories();
             
             // Check if category already exists
@@ -756,7 +996,8 @@
             
             categories.push({
                 name: name,
-                target: target ? parseInt(target) : null
+                target: target ? parseInt(target) : null,
+                subcategories: subcategories
             });
             
             saveCategories(categories);
@@ -766,6 +1007,14 @@
             
             // Reset form
             document.getElementById('addCategoryForm').reset();
+            // Reset subcategory inputs
+            document.getElementById('subcategoryInputs').innerHTML = `
+                <div class="subcategory-input-row">
+                    <input type="text" placeholder="e.g., Long Sleeve" class="subcategory-input">
+                    <button type="button" class="button-secondary button-small" onclick="addSubcategoryInput()">+ Add More</button>
+                </div>
+            `;
+            
             alert('Category added successfully!');
         });
         
