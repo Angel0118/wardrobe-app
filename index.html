@@ -372,9 +372,20 @@
             align-items: center;
         }
         
+        .subcategory-info {
+            flex: 1;
+        }
+        
         .subcategory-name {
             font-size: 14px;
             color: #555;
+            font-weight: 500;
+        }
+        
+        .subcategory-stats {
+            font-size: 12px;
+            color: #999;
+            margin-top: 2px;
         }
         
         .button-small {
@@ -428,11 +439,32 @@
         .subcategory-input-row {
             display: flex;
             gap: 5px;
-            align-items: center;
+            align-items: flex-start;
         }
         
-        .subcategory-input-row input {
+        .subcategory-input-fields {
             flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .subcategory-input-fields input {
+            width: 100%;
+        }
+        
+        .input-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 2px;
+        }
+        
+        .add-subcategory-form {
+            margin-top: 10px;
+            padding: 15px;
+            background: white;
+            border-radius: 5px;
+            border: 1px solid #ddd;
         }
     </style>
 </head>
@@ -519,21 +551,31 @@
                 <form id="addCategoryForm">
                     <div class="form-group">
                         <label for="categoryName">Category Name *</label>
-                        <input type="text" id="categoryName" required placeholder="e.g., Winter Coats">
+                        <input type="text" id="categoryName" required placeholder="e.g., Tops">
                     </div>
                     
                     <div class="form-group">
-                        <label for="categoryTarget">Target Number of Items (Optional)</label>
-                        <input type="number" id="categoryTarget" min="0" placeholder="e.g., 10">
-                        <small style="color: #666;">Leave empty for no limit. Items least worn will be highlighted if you exceed this target.</small>
+                        <label for="categoryTarget">Target for Entire Category (Optional)</label>
+                        <input type="number" id="categoryTarget" min="0" placeholder="e.g., 20">
+                        <small style="color: #666;">Leave empty for no category-wide limit.</small>
                     </div>
                     
                     <div class="subcategory-input-section">
                         <h3>Subcategories (Optional)</h3>
+                        <small style="color: #666; display: block; margin-bottom: 10px;">Each subcategory can have its own target limit.</small>
                         <div class="subcategory-inputs" id="subcategoryInputs">
                             <div class="subcategory-input-row">
-                                <input type="text" placeholder="e.g., Long Sleeve" class="subcategory-input">
-                                <button type="button" class="button-secondary button-small" onclick="addSubcategoryInput()">+ Add More</button>
+                                <div class="subcategory-input-fields">
+                                    <div>
+                                        <div class="input-label">Subcategory Name</div>
+                                        <input type="text" placeholder="e.g., T-Shirts" class="subcategory-name-input">
+                                    </div>
+                                    <div>
+                                        <div class="input-label">Target (Optional)</div>
+                                        <input type="number" min="0" placeholder="e.g., 5" class="subcategory-target-input">
+                                    </div>
+                                </div>
+                                <button type="button" class="button-secondary button-small" onclick="addSubcategoryInput()" style="margin-top: 20px;">+ Add</button>
                             </div>
                         </div>
                     </div>
@@ -576,12 +618,13 @@
             }
             // Default categories
             return [
-                { name: 'Tops', target: null, subcategories: [] },
-                { name: 'Bottoms', target: null, subcategories: [] },
-                { name: 'Dresses', target: null, subcategories: [] },
                 { name: 'Outerwear', target: null, subcategories: [] },
-                { name: 'Shoes', target: null, subcategories: [] },
-                { name: 'Accessories', target: null, subcategories: [] }
+                { name: 'Jeans, Trousers & Shorts', target: null, subcategories: [] },
+                { name: 'T-shirts, Sweats & Sleeveless', target: null, subcategories: [] },
+                { name: 'Shirts & Blouses', target: null, subcategories: [] },
+                { name: 'Dresses & skirts', target: null, subcategories: [] },
+                { name: 'Loungewear & Pajamas', target: null, subcategories: [] },
+                { name: 'Accessories', target:null, subcategories: []}
             ];
         }
         
@@ -631,7 +674,7 @@
             if (category && category.subcategories && category.subcategories.length > 0) {
                 subcategoryGroup.style.display = 'block';
                 subcategorySelect.innerHTML = '<option value="">Select subcategory (optional)</option>' +
-                    category.subcategories.map(sub => `<option value="${sub}">${sub}</option>`).join('');
+                    category.subcategories.map(sub => `<option value="${sub.name}">${sub.name}</option>`).join('');
             } else {
                 subcategoryGroup.style.display = 'none';
             }
@@ -647,28 +690,49 @@
             select.value = currentValue;
         }
         
-        // Get items that should be highlighted (least worn in over-target categories)
+        // Get items that should be highlighted (least worn in over-target categories/subcategories)
         function getItemsToHighlight() {
             const items = loadItems();
             const categories = loadCategories();
             const highlighted = new Set();
             
             categories.forEach(category => {
+                // Check category-level target
                 if (category.target) {
                     const categoryItems = items
                         .map((item, index) => ({ ...item, originalIndex: index }))
                         .filter(item => item.category === category.name && !item.archived);
                     
                     if (categoryItems.length > category.target) {
-                        // Sort by wear count (ascending)
                         categoryItems.sort((a, b) => (a.wearCount || 0) - (b.wearCount || 0));
-                        
-                        // Highlight the excess items (least worn)
                         const excess = categoryItems.length - category.target;
                         for (let i = 0; i < excess; i++) {
                             highlighted.add(categoryItems[i].originalIndex);
                         }
                     }
+                }
+                
+                // Check subcategory-level targets
+                if (category.subcategories) {
+                    category.subcategories.forEach(subcategory => {
+                        if (subcategory.target) {
+                            const subcategoryItems = items
+                                .map((item, index) => ({ ...item, originalIndex: index }))
+                                .filter(item => 
+                                    item.category === category.name && 
+                                    item.subcategory === subcategory.name && 
+                                    !item.archived
+                                );
+                            
+                            if (subcategoryItems.length > subcategory.target) {
+                                subcategoryItems.sort((a, b) => (a.wearCount || 0) - (b.wearCount || 0));
+                                const excess = subcategoryItems.length - subcategory.target;
+                                for (let i = 0; i < excess; i++) {
+                                    highlighted.add(subcategoryItems[i].originalIndex);
+                                }
+                            }
+                        }
+                    });
                 }
             });
             
@@ -757,7 +821,8 @@
             }
             
             list.innerHTML = categories.map((category, index) => {
-                const itemCount = items.filter(item => item.category === category.name && !item.archived).length;
+                const categoryItems = items.filter(item => item.category === category.name && !item.archived);
+                const itemCount = categoryItems.length;
                 const isOverTarget = category.target && itemCount > category.target;
                 
                 return `
@@ -772,18 +837,48 @@
                             </div>
                         </div>
                         <div class="category-actions">
+                            <button class="button-secondary button-small" onclick="toggleAddSubcategoryForm(${index})">+ Subcategory</button>
                             <button class="button-danger button-small" onclick="deleteCategory(${index})">Delete</button>
+                        </div>
+                    </div>
+                    <div id="addSubcategoryForm-${index}" class="add-subcategory-form" style="display: none;">
+                        <h3 style="margin-bottom: 10px;">Add Subcategory to ${category.name}</h3>
+                        <div style="display: flex; flex-direction: column; gap: 10px;">
+                            <div>
+                                <div class="input-label">Subcategory Name *</div>
+                                <input type="text" id="newSubcategoryName-${index}" placeholder="e.g., T-Shirts">
+                            </div>
+                            <div>
+                                <div class="input-label">Target (Optional)</div>
+                                <input type="number" id="newSubcategoryTarget-${index}" min="0" placeholder="e.g., 5">
+                            </div>
+                            <div style="display: flex; gap: 5px;">
+                                <button class="button-small" style="flex: 1;" onclick="addSubcategoryToExisting(${index})">Add</button>
+                                <button class="button-secondary button-small" style="flex: 1;" onclick="toggleAddSubcategoryForm(${index})">Cancel</button>
+                            </div>
                         </div>
                     </div>
                     ${category.subcategories && category.subcategories.length > 0 ? `
                         <div class="subcategory-list">
                             <h3>Subcategories:</h3>
-                            ${category.subcategories.map((sub, subIndex) => `
+                            ${category.subcategories.map((sub, subIndex) => {
+                                const subItems = categoryItems.filter(item => item.subcategory === sub.name);
+                                const subCount = subItems.length;
+                                const subOverTarget = sub.target && subCount > sub.target;
+                                
+                                return `
                                 <div class="subcategory-item">
-                                    <span class="subcategory-name">${sub}</span>
+                                    <div class="subcategory-info">
+                                        <div class="subcategory-name">${sub.name}</div>
+                                        <div class="subcategory-stats">
+                                            ${subCount} items
+                                            ${sub.target ? ` | Target: <span class="${subOverTarget ? 'category-over-target' : 'category-target'}">${sub.target}</span>` : ''}
+                                            ${subOverTarget ? ` (${subCount - sub.target} over)` : ''}
+                                        </div>
+                                    </div>
                                     <button class="button-danger button-small" onclick="deleteSubcategory(${index}, ${subIndex})">×</button>
                                 </div>
-                            `).join('')}
+                            `}).join('')}
                         </div>
                     ` : ''}
                 </div>
@@ -817,7 +912,7 @@
         // Delete subcategory
         function deleteSubcategory(categoryIndex, subcategoryIndex) {
             const categories = loadCategories();
-            const subcategoryName = categories[categoryIndex].subcategories[subcategoryIndex];
+            const subcategoryName = categories[categoryIndex].subcategories[subcategoryIndex].name;
             
             if (!confirm(`Delete subcategory "${subcategoryName}"?`)) {
                 return;
@@ -828,14 +923,67 @@
             displayCategories();
         }
         
+        // Toggle add subcategory form
+        function toggleAddSubcategoryForm(categoryIndex) {
+            const form = document.getElementById(`addSubcategoryForm-${categoryIndex}`);
+            if (form.style.display === 'none') {
+                form.style.display = 'block';
+            } else {
+                form.style.display = 'none';
+                // Clear inputs when hiding
+                document.getElementById(`newSubcategoryName-${categoryIndex}`).value = '';
+                document.getElementById(`newSubcategoryTarget-${categoryIndex}`).value = '';
+            }
+        }
+        
+        // Add subcategory to existing category
+        function addSubcategoryToExisting(categoryIndex) {
+            const name = document.getElementById(`newSubcategoryName-${categoryIndex}`).value.trim();
+            const target = document.getElementById(`newSubcategoryTarget-${categoryIndex}`).value;
+            
+            if (!name) {
+                alert('Please enter a subcategory name');
+                return;
+            }
+            
+            const categories = loadCategories();
+            
+            // Check if subcategory already exists in this category
+            if (categories[categoryIndex].subcategories.some(sub => sub.name.toLowerCase() === name.toLowerCase())) {
+                alert('A subcategory with this name already exists in this category!');
+                return;
+            }
+            
+            // Add the subcategory
+            categories[categoryIndex].subcategories.push({
+                name: name,
+                target: target ? parseInt(target) : null
+            });
+            
+            saveCategories(categories);
+            displayCategories();
+            updateCategorySelect();
+            
+            alert('Subcategory added successfully!');
+        }
+        
         // Add subcategory input field
         function addSubcategoryInput() {
             const container = document.getElementById('subcategoryInputs');
             const newRow = document.createElement('div');
             newRow.className = 'subcategory-input-row';
             newRow.innerHTML = `
-                <input type="text" placeholder="e.g., Short Sleeve" class="subcategory-input">
-                <button type="button" class="button-danger button-small" onclick="this.parentElement.remove()">×</button>
+                <div class="subcategory-input-fields">
+                    <div>
+                        <div class="input-label">Subcategory Name</div>
+                        <input type="text" placeholder="e.g., Blouses" class="subcategory-name-input">
+                    </div>
+                    <div>
+                        <div class="input-label">Target (Optional)</div>
+                        <input type="number" min="0" placeholder="e.g., 3" class="subcategory-target-input">
+                    </div>
+                </div>
+                <button type="button" class="button-danger button-small" onclick="this.parentElement.remove()" style="margin-top: 20px;">×</button>
             `;
             container.appendChild(newRow);
         }
@@ -980,11 +1128,21 @@
             const name = document.getElementById('categoryName').value;
             const target = document.getElementById('categoryTarget').value;
             
-            // Collect subcategories
-            const subcategoryInputs = document.querySelectorAll('.subcategory-input');
-            const subcategories = Array.from(subcategoryInputs)
-                .map(input => input.value.trim())
-                .filter(val => val !== '');
+            // Collect subcategories with targets
+            const nameInputs = document.querySelectorAll('.subcategory-name-input');
+            const targetInputs = document.querySelectorAll('.subcategory-target-input');
+            const subcategories = [];
+            
+            nameInputs.forEach((nameInput, idx) => {
+                const subName = nameInput.value.trim();
+                if (subName) {
+                    const subTarget = targetInputs[idx].value;
+                    subcategories.push({
+                        name: subName,
+                        target: subTarget ? parseInt(subTarget) : null
+                    });
+                }
+            });
             
             const categories = loadCategories();
             
@@ -1010,8 +1168,17 @@
             // Reset subcategory inputs
             document.getElementById('subcategoryInputs').innerHTML = `
                 <div class="subcategory-input-row">
-                    <input type="text" placeholder="e.g., Long Sleeve" class="subcategory-input">
-                    <button type="button" class="button-secondary button-small" onclick="addSubcategoryInput()">+ Add More</button>
+                    <div class="subcategory-input-fields">
+                        <div>
+                            <div class="input-label">Subcategory Name</div>
+                            <input type="text" placeholder="e.g., T-Shirts" class="subcategory-name-input">
+                        </div>
+                        <div>
+                            <div class="input-label">Target (Optional)</div>
+                            <input type="number" min="0" placeholder="e.g., 5" class="subcategory-target-input">
+                        </div>
+                    </div>
+                    <button type="button" class="button-secondary button-small" onclick="addSubcategoryInput()" style="margin-top: 20px;">+ Add</button>
                 </div>
             `;
             
