@@ -567,7 +567,7 @@
                         <input type="file" id="photo" accept="image/*" capture="environment">
                     </div>
                     
-                    <button type="submit">Add Item</button>
+                    <button type="submit" id="addItemButton">Add Item</button>
                 </form>
             </div>
         </div>
@@ -646,14 +646,12 @@
             }
             // Default categories
             return [
+                { name: 'Tops', target: null, subcategories: [] },
+                { name: 'Bottoms', target: null, subcategories: [] },
+                { name: 'Dresses', target: null, subcategories: [] },
                 { name: 'Outerwear', target: null, subcategories: [] },
-                { name: 'Jeans, Trousers & Shorts', target: null, subcategories: [] },
-                { name: 'T-Shirts, Sweats & Bra/Tank Tops', target: null, subcategories: [] },
-                { name: 'Loungewear & Pajamas', target: null, subcategories: [] },
-                { name: 'Shorts & Blouses', target: null, subcategories: [] },
-                { name: 'Dresses & Skirts', target: null, subcategories: [] },
-                { name: 'Accessories', target: null, subcategories: [] },
-                { name: 'Sport Utility Wear', target: null, subcategories: [] }
+                { name: 'Shoes', target: null, subcategories: [] },
+                { name: 'Accessories', target: null, subcategories: [] }
             ];
         }
         
@@ -1166,22 +1164,48 @@
         document.getElementById('addItemForm').addEventListener('submit', function(e) {
             e.preventDefault();
             
-            const name = document.getElementById('itemName').value;
+            const submitButton = document.getElementById('addItemButton');
+            const originalButtonText = submitButton.textContent;
+            
+            // Disable button and show loading state
+            submitButton.disabled = true;
+            submitButton.textContent = 'Adding...';
+            submitButton.style.opacity = '0.6';
+            
+            const name = document.getElementById('itemName').value.trim();
             const category = document.getElementById('category').value;
             const subcategory = document.getElementById('subcategory').value;
             const photoInput = document.getElementById('photo');
             
-            // Handle photo
-            if (photoInput.files && photoInput.files[0]) {
-                const reader = new FileReader();
-                
-                reader.onload = function(e) {
+            // Function to reset button
+            function resetButton() {
+                submitButton.disabled = false;
+                submitButton.textContent = originalButtonText;
+                submitButton.style.opacity = '1';
+            }
+            
+            // Validation
+            if (!name) {
+                alert('Please enter an item name');
+                resetButton();
+                return;
+            }
+            
+            if (!category) {
+                alert('Please select a category');
+                resetButton();
+                return;
+            }
+            
+            // Function to save item
+            function saveNewItem(photoData) {
+                try {
                     const newItem = {
                         name: name,
                         category: category,
                         subcategory: subcategory || null,
                         tags: [...currentTags],
-                        photo: e.target.result,
+                        photo: photoData,
                         dateAdded: new Date().toISOString(),
                         wearCount: 0,
                         wearHistory: [],
@@ -1198,37 +1222,62 @@
                     updateTagDisplay();
                     document.getElementById('subcategoryGroup').style.display = 'none';
                     
+                    // Reset button
+                    resetButton();
+                    
+                    // Success feedback
                     alert('Item added successfully!');
-                    switchTab('wardrobe');
+                    
+                    // Switch to wardrobe tab
+                    setTimeout(() => {
+                        switchTab('wardrobe');
+                    }, 100);
+                } catch (error) {
+                    console.error('Error saving item:', error);
+                    resetButton();
+                    alert('Error saving item. Please try again.');
+                }
+            }
+            
+            // Handle photo if present
+            if (photoInput.files && photoInput.files[0]) {
+                const file = photoInput.files[0];
+                
+                // Check file size (max 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    alert('Photo is too large. Please choose a smaller image (under 5MB).');
+                    resetButton();
+                    return;
+                }
+                
+                const reader = new FileReader();
+                
+                reader.onerror = function() {
+                    console.error('Error reading file');
+                    if (confirm('Error reading photo. Do you want to save the item without a photo?')) {
+                        saveNewItem(null);
+                    } else {
+                        resetButton();
+                    }
                 };
                 
-                reader.readAsDataURL(photoInput.files[0]);
+                reader.onload = function(e) {
+                    saveNewItem(e.target.result);
+                };
+                
+                try {
+                    reader.readAsDataURL(file);
+                } catch (error) {
+                    console.error('FileReader error:', error);
+                    if (confirm('Error processing photo. Do you want to save the item without a photo?')) {
+                        saveNewItem(null);
+                    } else {
+                        resetButton();
+                    }
+                }
             } else {
-                // No photo
-                const newItem = {
-                    name: name,
-                    category: category,
-                    subcategory: subcategory || null,
-                    tags: [...currentTags],
-                    photo: null,
-                    dateAdded: new Date().toISOString(),
-                    wearCount: 0,
-                    wearHistory: [],
-                    archived: false
-                };
-                
-                const items = loadItems();
-                items.push(newItem);
-                saveItems(items);
-                
-                // Reset form
-                document.getElementById('addItemForm').reset();
-                currentTags = [];
-                updateTagDisplay();
-                document.getElementById('subcategoryGroup').style.display = 'none';
-                
-                alert('Item added successfully!');
-                switchTab('wardrobe');
+                // No photo - save immediately
+                saveNewItem(null);
             }
         });
         
