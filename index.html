@@ -166,6 +166,12 @@
             display: flex;
             gap: 10px;
             margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .button-group button {
+            width: auto;
+            flex: 0 0 auto;
         }
         
         .tag-input-container {
@@ -240,6 +246,7 @@
             font-weight: 600;
             font-size: 18px;
             color: #333;
+            line-height: 1.4;
         }
         
         .item-badge {
@@ -374,8 +381,10 @@
         .category-header {
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             margin-bottom: 10px;
+            gap: 15px;
+            flex-wrap: wrap;
         }
         
         .category-name {
@@ -402,6 +411,13 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .subcategory-item > div:first-child {
+            flex: 1;
+            min-width: 150px;
         }
         
         .file-input-wrapper {
@@ -429,6 +445,10 @@
         .file-input-label:hover {
             background: #003049;
         }
+        
+        .suggestion-section {
+            margin-bottom: 30px;
+        }
     </style>
 </head>
 <body>
@@ -439,6 +459,7 @@
         <div class="tabs">
             <button class="tab active" onclick="switchTab('wardrobe', this)">Wardrobe</button>
             <button class="tab" onclick="switchTab('add', this)">Add Item</button>
+            <button class="tab" onclick="switchTab('suggestions', this)">Archive Suggestions</button>
             <button class="tab" onclick="switchTab('categories', this)">Categories</button>
             <button class="tab" onclick="switchTab('data', this)">Data</button>
         </div>
@@ -472,14 +493,26 @@
                     
                     <div class="form-group">
                         <label for="filterCategory">Category</label>
-                        <select id="filterCategory" onchange="displayItems()">
+                        <select id="filterCategory" onchange="updateSubcategoryFilter(); displayItems();">
                             <option value="">All Categories</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="filterSubcategory">Subcategory</label>
+                        <select id="filterSubcategory" onchange="displayItems()">
+                            <option value="">All Subcategories</option>
                         </select>
                     </div>
                     
                     <div class="form-group">
                         <label for="filterColor">Color</label>
                         <input type="text" id="filterColor" placeholder="Any color" onkeyup="displayItems()">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="filterBrand">Brand</label>
+                        <input type="text" id="filterBrand" placeholder="Any brand" onkeyup="displayItems()">
                     </div>
                     
                     <div class="form-group">
@@ -504,6 +537,9 @@
         <div id="addTab" class="tab-content">
             <div class="form-section">
                 <h2>Add New Item</h2>
+                <p style="color: #669BBC; margin-bottom: 15px; font-size: 14px;">
+                    💡 The app will check for duplicates and alert you if this item already exists.
+                </p>
                 <form id="addItemForm">
                     <div class="form-group">
                         <label for="itemName">Item Name *</label>
@@ -529,25 +565,53 @@
                     <div class="form-row">
                         <div class="form-group">
                             <label for="brand">Brand</label>
-                            <input type="text" id="brand" placeholder="e.g., Levi's">
+                            <input type="text" id="brand" list="brandList" placeholder="e.g., Levi's">
+                            <datalist id="brandList"></datalist>
                         </div>
                         
                         <div class="form-group">
                             <label for="color">Color *</label>
-                            <input type="text" id="color" required placeholder="e.g., Blue">
+                            <input type="text" id="color" list="colorList" required placeholder="e.g., Blue">
+                            <datalist id="colorList"></datalist>
                         </div>
                     </div>
                     
                     <div class="form-group">
                         <label for="tags">Tags</label>
                         <div class="tag-input-container" id="tagContainer">
-                            <input type="text" class="tag-input" id="tagInput" placeholder="Type tag and press Enter">
+                            <input type="text" class="tag-input" id="tagInput" list="tagList" placeholder="Type tag and press Enter">
+                            <datalist id="tagList"></datalist>
                         </div>
                         <small style="color: #666;">Press Enter to add tags (e.g., "casual", "summer", "work")</small>
                     </div>
                     
                     <button type="submit" id="addItemButton">Add Item</button>
                 </form>
+            </div>
+        </div>
+        
+        <!-- Archive Suggestions Tab -->
+        <div id="suggestionsTab" class="tab-content">
+            <div class="form-section">
+                <h2>📋 Items to Consider Archiving</h2>
+                <p style="color: #666; margin-bottom: 15px;">
+                    These items may be good candidates for archiving based on wear patterns and wardrobe targets.
+                </p>
+            </div>
+            
+            <div id="notWornSection" style="margin-bottom: 30px;">
+                <h3 style="color: #780000;">🚨 Not Worn in 1+ Year (<span id="notWornCount">0</span>)</h3>
+                <div class="item-list" id="notWornList"></div>
+            </div>
+            
+            <div id="overTargetSection" style="margin-bottom: 30px;">
+                <h3 style="color: #C1121F;">⚠️ Over Target Limits (<span id="overTargetCount">0</span>)</h3>
+                <div class="item-list" id="overTargetList"></div>
+            </div>
+            
+            <div id="neverWornSection">
+                <h3 style="color: #669BBC;">💤 Never Worn (Added 6+ Months Ago) (<span id="neverWornCount">0</span>)</h3>
+                <div class="item-list" id="neverWornList"></div>
             </div>
         </div>
         
@@ -571,6 +635,9 @@
             </div>
             
             <h2>My Categories</h2>
+            <p style="color: #669BBC; margin-bottom: 15px; font-size: 14px;">
+                💡 Add emojis to subcategories to make items easier to identify in your wardrobe!
+            </p>
             <div class="category-list" id="categoryList"></div>
         </div>
         
@@ -678,12 +745,54 @@
             if (tabName === 'wardrobe') {
                 displayItems();
                 updateCategoryFilter();
+                updateSubcategoryFilter();
                 updateStats();
             } else if (tabName === 'categories') {
                 displayCategories();
             } else if (tabName === 'add') {
                 updateCategorySelect();
+                populateDataLists();
+            } else if (tabName === 'suggestions') {
+                displayArchiveSuggestions();
             }
+        }
+        
+        // Normalize string for comparison (remove case, spacing, symbols)
+        function normalizeString(str) {
+            if (!str) return '';
+            return str.toLowerCase()
+                .replace(/[^a-z0-9]/g, '') // Remove all non-alphanumeric characters
+                .trim();
+        }
+        
+        // Check if item already exists
+        function checkDuplicateItem(name, brand, color, category, subcategory) {
+            const items = loadItems();
+            const normalizedNew = {
+                name: normalizeString(name),
+                brand: normalizeString(brand),
+                color: normalizeString(color),
+                category: normalizeString(category),
+                subcategory: normalizeString(subcategory)
+            };
+            
+            const duplicate = items.find(item => {
+                const normalizedExisting = {
+                    name: normalizeString(item.name),
+                    brand: normalizeString(item.brand),
+                    color: normalizeString(item.color),
+                    category: normalizeString(item.category),
+                    subcategory: normalizeString(item.subcategory)
+                };
+                
+                return normalizedExisting.name === normalizedNew.name &&
+                       normalizedExisting.brand === normalizedNew.brand &&
+                       normalizedExisting.color === normalizedNew.color &&
+                       normalizedExisting.category === normalizedNew.category &&
+                       normalizedExisting.subcategory === normalizedNew.subcategory;
+            });
+            
+            return duplicate;
         }
         
         // Update stats
@@ -731,6 +840,61 @@
             select.innerHTML = '<option value="">All Categories</option>' + 
                 categories.map(cat => `<option value="${cat.name}">${cat.name}</option>`).join('');
             select.value = currentValue;
+        }
+        
+        // Update subcategory filter based on selected category
+        function updateSubcategoryFilter() {
+            const categoryName = document.getElementById('filterCategory').value;
+            const categories = loadCategories();
+            const select = document.getElementById('filterSubcategory');
+            
+            if (!categoryName) {
+                select.innerHTML = '<option value="">All Subcategories</option>';
+                return;
+            }
+            
+            const category = categories.find(c => c.name === categoryName);
+            
+            if (category && category.subcategories && category.subcategories.length > 0) {
+                // Sort subcategories alphabetically
+                const sortedSubcategories = [...category.subcategories].sort((a, b) => a.name.localeCompare(b.name));
+                
+                select.innerHTML = '<option value="">All Subcategories</option>' +
+                    sortedSubcategories.map(sub => `<option value="${sub.name}">${sub.emoji ? sub.emoji + ' ' : ''}${sub.name}</option>`).join('');
+            } else {
+                select.innerHTML = '<option value="">All Subcategories</option>';
+            }
+        }
+        
+        // Populate datalists with previous values
+        function populateDataLists() {
+            const items = loadItems();
+            
+            // Get unique brands
+            const brands = [...new Set(items.map(item => item.brand).filter(b => b))].sort();
+            const brandList = document.getElementById('brandList');
+            if (brandList) {
+                brandList.innerHTML = brands.map(b => `<option value="${b}">`).join('');
+            }
+            
+            // Get unique colors
+            const colors = [...new Set(items.map(item => item.color).filter(c => c))].sort();
+            const colorList = document.getElementById('colorList');
+            if (colorList) {
+                colorList.innerHTML = colors.map(c => `<option value="${c}">`).join('');
+            }
+            
+            // Get unique tags (flatten all tags from all items)
+            const allTags = items.reduce((tags, item) => {
+                if (item.tags) {
+                    return [...tags, ...item.tags];
+                }
+                return tags;
+            }, []);
+            const uniqueTags = [...new Set(allTags)].sort();
+            
+            // Store for tag input
+            window.availableTags = uniqueTags;
         }
         
         // Get items not worn in over a year
@@ -840,13 +1004,29 @@
             return highlighted;
         }
         
+        // Get emoji for item based on subcategory
+        function getItemEmoji(item) {
+            if (!item.subcategory) return '';
+            
+            const categories = loadCategories();
+            const category = categories.find(cat => cat.name === item.category);
+            
+            if (!category || !category.subcategories) return '';
+            
+            const subcategory = category.subcategories.find(sub => sub.name === item.subcategory);
+            
+            return subcategory && subcategory.emoji ? subcategory.emoji + ' ' : '';
+        }
+        
         // Display all items
         function displayItems() {
             const items = loadItems();
             const list = document.getElementById('itemList');
             const searchText = document.getElementById('searchText').value.toLowerCase();
             const filterCategory = document.getElementById('filterCategory').value;
+            const filterSubcategory = document.getElementById('filterSubcategory').value;
             const filterColor = document.getElementById('filterColor').value.toLowerCase();
+            const filterBrand = document.getElementById('filterBrand').value.toLowerCase();
             const filterTag = document.getElementById('filterTag').value.toLowerCase();
             const showArchived = document.getElementById('showArchived').checked;
             const highlighted = getItemsToHighlight();
@@ -867,9 +1047,19 @@
                 filteredItems = filteredItems.filter(item => item.category === filterCategory);
             }
             
+            if (filterSubcategory) {
+                filteredItems = filteredItems.filter(item => item.subcategory === filterSubcategory);
+            }
+            
             if (filterColor) {
                 filteredItems = filteredItems.filter(item => 
                     item.color && item.color.toLowerCase().includes(filterColor)
+                );
+            }
+            
+            if (filterBrand) {
+                filteredItems = filteredItems.filter(item => 
+                    item.brand && item.brand.toLowerCase().includes(filterBrand)
                 );
             }
             
@@ -883,6 +1073,22 @@
                 filteredItems = filteredItems.filter(item => !item.archived);
             }
             
+            // Sort by: Category > Subcategory > Frequency (wear count descending)
+            filteredItems.sort((a, b) => {
+                // First by category
+                if (a.category !== b.category) {
+                    return a.category.localeCompare(b.category);
+                }
+                // Then by subcategory
+                const aSubcat = a.subcategory || '';
+                const bSubcat = b.subcategory || '';
+                if (aSubcat !== bSubcat) {
+                    return aSubcat.localeCompare(bSubcat);
+                }
+                // Then by frequency (descending - most worn first)
+                return (b.wearCount || 0) - (a.wearCount || 0);
+            });
+            
             document.getElementById('itemCount').textContent = filteredItems.length;
             
             if (filteredItems.length === 0) {
@@ -895,11 +1101,12 @@
                 const notWornYear = notWornInYear.has(item.originalIndex);
                 const lastWornInfo = getLastWornInfo(item);
                 const cardClass = notWornYear ? 'not-worn-year' : (isHighlighted ? 'low-usage' : '');
+                const emoji = getItemEmoji(item);
                 
                 return `
                 <div class="item-card ${cardClass} ${item.archived ? 'archived' : ''}">
                     <div class="item-header">
-                        <div class="item-name">${item.name}</div>
+                        <div class="item-name">${emoji}${item.name}</div>
                         ${notWornYear && !item.archived ? '<span class="item-badge">Not worn 1+ year</span>' : ''}
                         ${isHighlighted && !notWornYear && !item.archived ? '<span class="item-badge warning">Over target</span>' : ''}
                         ${item.archived ? '<span class="item-badge" style="background: #669BBC;">Archived</span>' : ''}
@@ -946,7 +1153,107 @@
             `}).join('');
         }
         
-        // Archive item
+        // Display archive suggestions
+        function displayArchiveSuggestions() {
+            const items = loadItems();
+            const notWornInYear = getItemsNotWornInYear();
+            const highlighted = getItemsToHighlight();
+            
+            // Items not worn in 1+ year
+            const notWornItems = items
+                .map((item, index) => ({ ...item, originalIndex: index }))
+                .filter(item => !item.archived && notWornInYear.has(item.originalIndex));
+            
+            // Items over target
+            const overTargetItems = items
+                .map((item, index) => ({ ...item, originalIndex: index }))
+                .filter(item => !item.archived && highlighted.has(item.originalIndex) && !notWornInYear.has(item.originalIndex));
+            
+            // Never worn items added 6+ months ago
+            const sixMonthsAgo = new Date();
+            sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+            
+            const neverWornItems = items
+                .map((item, index) => ({ ...item, originalIndex: index }))
+                .filter(item => {
+                    if (item.archived) return false;
+                    if (item.wearHistory && item.wearHistory.length > 0) return false;
+                    const dateAdded = new Date(item.dateAdded);
+                    return dateAdded < sixMonthsAgo;
+                });
+            
+            // Update counts
+            document.getElementById('notWornCount').textContent = notWornItems.length;
+            document.getElementById('overTargetCount').textContent = overTargetItems.length;
+            document.getElementById('neverWornCount').textContent = neverWornItems.length;
+            
+            // Display not worn items
+            displaySuggestionList(notWornItems, 'notWornList');
+            
+            // Display over target items
+            displaySuggestionList(overTargetItems, 'overTargetList');
+            
+            // Display never worn items
+            displaySuggestionList(neverWornItems, 'neverWornList');
+        }
+        
+        // Display suggestion list helper
+        function displaySuggestionList(items, listId) {
+            const list = document.getElementById(listId);
+            
+            if (items.length === 0) {
+                list.innerHTML = '<div class="empty-state" style="padding: 20px;">No items in this category! 🎉</div>';
+                return;
+            }
+            
+            list.innerHTML = items.map((item) => {
+                const lastWornInfo = getLastWornInfo(item);
+                const emoji = getItemEmoji(item);
+                
+                return `
+                <div class="item-card">
+                    <div class="item-header">
+                        <div class="item-name">${emoji}${item.name}</div>
+                    </div>
+                    
+                    <div class="item-details">
+                        <div class="item-detail">
+                            <div class="item-detail-label">Category</div>
+                            <div class="item-detail-value">${item.category}${item.subcategory ? ' > ' + item.subcategory : ''}</div>
+                        </div>
+                        ${item.brand ? `
+                        <div class="item-detail">
+                            <div class="item-detail-label">Brand</div>
+                            <div class="item-detail-value">${item.brand}</div>
+                        </div>
+                        ` : ''}
+                        <div class="item-detail">
+                            <div class="item-detail-label">Color</div>
+                            <div class="item-detail-value">${item.color}</div>
+                        </div>
+                        <div class="item-detail">
+                            <div class="item-detail-label">Worn</div>
+                            <div class="item-detail-value">${item.wearCount || 0} times</div>
+                        </div>
+                        <div class="item-detail">
+                            <div class="item-detail-label">Last Worn</div>
+                            <div class="item-detail-value" style="color: ${lastWornInfo.isWarning ? '#780000' : '#333'}">${lastWornInfo.text}</div>
+                        </div>
+                    </div>
+                    
+                    ${item.tags && item.tags.length > 0 ? `
+                        <div class="item-tags">
+                            ${item.tags.map(tag => `<span class="item-tag">${tag}</span>`).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <div class="item-actions">
+                        <button class="button-secondary button-small" onclick="archiveItem(${item.originalIndex}); displayArchiveSuggestions();">Archive</button>
+                        <button class="button-danger button-small" onclick="deleteItem(${item.originalIndex}); displayArchiveSuggestions();">Delete</button>
+                    </div>
+                </div>
+            `}).join('');
+        }
         function archiveItem(index) {
             const items = loadItems();
             items[index].archived = true;
@@ -1022,7 +1329,14 @@
                 </span>
             `).join('');
             
-            container.innerHTML = tagsHTML + '<input type="text" class="tag-input" id="tagInput" placeholder="Type tag and press Enter">';
+            container.innerHTML = tagsHTML + '<input type="text" class="tag-input" id="tagInput" list="tagList" placeholder="Type tag and press Enter"><datalist id="tagList"></datalist>';
+            
+            // Populate tag list
+            if (window.availableTags) {
+                const tagList = document.getElementById('tagList');
+                tagList.innerHTML = window.availableTags.map(t => `<option value="${t}">`).join('');
+            }
+            
             setupTagInput();
         }
         
@@ -1045,6 +1359,49 @@
             const brand = document.getElementById('brand').value.trim();
             const color = document.getElementById('color').value.trim();
             
+            // Check for duplicate
+            const duplicate = checkDuplicateItem(name, brand, color, category, subcategory);
+            
+            if (duplicate) {
+                submitButton.disabled = false;
+                submitButton.textContent = 'Add Item';
+                
+                const duplicateDetails = `
+Name: ${duplicate.name}
+Brand: ${duplicate.brand || 'N/A'}
+Color: ${duplicate.color}
+Category: ${duplicate.category}${duplicate.subcategory ? ' > ' + duplicate.subcategory : ''}
+Status: ${duplicate.archived ? 'Archived' : 'Active'}
+Worn: ${duplicate.wearCount || 0} times
+                `.trim();
+                
+                const message = `⚠️ This item already exists in your wardrobe!
+
+${duplicateDetails}
+
+What would you like to do?
+• Click OK to view this item in your wardrobe
+• Click Cancel to rename/modify the new item
+
+Tip: If you have multiple similar items, try adding details to the name like "Blue Jeans (Light Wash)" or "Blue Jeans (Skinny Fit)"`;
+                
+                if (confirm(message)) {
+                    // Switch to wardrobe and highlight the duplicate
+                    switchTab('wardrobe');
+                    
+                    // Set filters to show the duplicate
+                    document.getElementById('filterCategory').value = duplicate.category;
+                    updateSubcategoryFilter();
+                    if (duplicate.subcategory) {
+                        document.getElementById('filterSubcategory').value = duplicate.subcategory;
+                    }
+                    document.getElementById('searchText').value = duplicate.name;
+                    displayItems();
+                }
+                
+                return;
+            }
+            
             const newItem = {
                 name: name,
                 category: category,
@@ -1065,7 +1422,17 @@
                 document.getElementById('addItemForm').reset();
                 currentTags = [];
                 const tagContainer = document.getElementById('tagContainer');
-                tagContainer.innerHTML = '<input type="text" class="tag-input" id="tagInput" placeholder="Type tag and press Enter">';
+                tagContainer.innerHTML = '<input type="text" class="tag-input" id="tagInput" list="tagList" placeholder="Type tag and press Enter"><datalist id="tagList"></datalist>';
+                
+                // Repopulate datalists with new values
+                populateDataLists();
+                
+                // Update tag datalist
+                if (window.availableTags) {
+                    const tagList = document.getElementById('tagList');
+                    tagList.innerHTML = window.availableTags.map(t => `<option value="${t}">`).join('');
+                }
+                
                 setupTagInput();
                 document.getElementById('subcategoryGroup').style.display = 'none';
                 
@@ -1122,6 +1489,11 @@
                 const itemCount = categoryItems.length;
                 const isOverTarget = category.target && itemCount > category.target;
                 
+                // Sort subcategories alphabetically
+                const sortedSubcategories = category.subcategories 
+                    ? [...category.subcategories].sort((a, b) => a.name.localeCompare(b.name))
+                    : [];
+                
                 return `
                 <div class="category-item">
                     <div class="category-header">
@@ -1134,14 +1506,16 @@
                             </div>
                         </div>
                         <div class="button-group">
+                            <button class="button-small" style="background: #669BBC;" onclick="editCategory(${index})">Edit</button>
                             <button class="button-secondary button-small" onclick="addSubcategoryPrompt(${index})">+ Subcategory</button>
                             <button class="button-danger button-small" onclick="deleteCategory(${index})">Delete</button>
                         </div>
                     </div>
                     
-                    ${category.subcategories && category.subcategories.length > 0 ? `
+                    ${sortedSubcategories.length > 0 ? `
                         <div class="subcategory-list">
-                            ${category.subcategories.map((sub, subIndex) => {
+                            ${sortedSubcategories.map((sub) => {
+                                const originalIndex = category.subcategories.findIndex(s => s.name === sub.name);
                                 const subItems = categoryItems.filter(item => item.subcategory === sub.name);
                                 const subCount = subItems.length;
                                 const subOverTarget = sub.target && subCount > sub.target;
@@ -1149,14 +1523,17 @@
                                 return `
                                 <div class="subcategory-item">
                                     <div>
-                                        <div style="font-weight: 500;">${sub.name}</div>
+                                        <div style="font-weight: 500;">${sub.emoji ? sub.emoji + ' ' : ''}${sub.name}</div>
                                         <div style="font-size: 12px; color: #666;">
                                             ${subCount} items
                                             ${sub.target ? ` | Target: ${sub.target}` : ''}
                                             ${subOverTarget ? ` (${subCount - sub.target} over)` : ''}
                                         </div>
                                     </div>
-                                    <button class="button-danger button-small" onclick="deleteSubcategory(${index}, ${subIndex})">Delete</button>
+                                    <div class="button-group">
+                                        <button class="button-small" style="background: #669BBC;" onclick="editSubcategory(${index}, ${originalIndex})">Edit</button>
+                                        <button class="button-danger button-small" onclick="deleteSubcategory(${index}, ${originalIndex})">Delete</button>
+                                    </div>
                                 </div>
                             `}).join('')}
                         </div>
@@ -1165,10 +1542,114 @@
             `}).join('');
         }
         
+        // Edit category
+        function editCategory(categoryIndex) {
+            const categories = loadCategories();
+            const category = categories[categoryIndex];
+            
+            const newName = prompt('Edit category name:', category.name);
+            if (newName === null) return; // User cancelled
+            
+            const trimmedName = newName.trim();
+            if (!trimmedName) {
+                alert('Category name cannot be empty!');
+                return;
+            }
+            
+            // Check if new name already exists (excluding current category)
+            if (categories.some((cat, idx) => idx !== categoryIndex && cat.name.toLowerCase() === trimmedName.toLowerCase())) {
+                alert('A category with this name already exists!');
+                return;
+            }
+            
+            const oldName = category.name;
+            
+            // Update category name
+            categories[categoryIndex].name = trimmedName;
+            
+            // Update target
+            const targetInput = prompt('Edit target number (leave empty for no target):', category.target || '');
+            if (targetInput !== null) {
+                categories[categoryIndex].target = targetInput.trim() ? parseInt(targetInput) : null;
+            }
+            
+            // Update all items that use this category
+            const items = loadItems();
+            items.forEach(item => {
+                if (item.category === oldName) {
+                    item.category = trimmedName;
+                }
+            });
+            
+            saveCategories(categories);
+            saveItems(items);
+            displayCategories();
+            updateCategorySelect();
+            updateCategoryFilter();
+            
+            alert('Category updated successfully!');
+        }
+        
+        // Edit subcategory
+        function editSubcategory(categoryIndex, subcategoryIndex) {
+            const categories = loadCategories();
+            const subcategory = categories[categoryIndex].subcategories[subcategoryIndex];
+            const categoryName = categories[categoryIndex].name;
+            
+            const newName = prompt('Edit subcategory name:', subcategory.name);
+            if (newName === null) return; // User cancelled
+            
+            const trimmedName = newName.trim();
+            if (!trimmedName) {
+                alert('Subcategory name cannot be empty!');
+                return;
+            }
+            
+            // Check if new name already exists in this category (excluding current subcategory)
+            if (categories[categoryIndex].subcategories.some((sub, idx) => 
+                idx !== subcategoryIndex && sub.name.toLowerCase() === trimmedName.toLowerCase())) {
+                alert('A subcategory with this name already exists in this category!');
+                return;
+            }
+            
+            const oldName = subcategory.name;
+            
+            // Update subcategory name
+            categories[categoryIndex].subcategories[subcategoryIndex].name = trimmedName;
+            
+            // Update emoji
+            const emojiInput = prompt('Edit emoji (optional):\n\nPopular choices:\n👕 T-Shirts  👔 Dress Shirts  🧥 Jackets\n👖 Jeans  👗 Dresses  👠 Heels\n👟 Sneakers  🩳 Shorts  👘 Traditional\n🧣 Scarves  🎩 Hats  👜 Bags\n🕶️ Sunglasses  ⌚ Watches  💍 Jewelry', subcategory.emoji || '');
+            if (emojiInput !== null) {
+                categories[categoryIndex].subcategories[subcategoryIndex].emoji = emojiInput.trim() || null;
+            }
+            
+            // Update target
+            const targetInput = prompt('Edit target number (leave empty for no target):', subcategory.target || '');
+            if (targetInput !== null) {
+                categories[categoryIndex].subcategories[subcategoryIndex].target = targetInput.trim() ? parseInt(targetInput) : null;
+            }
+            
+            // Update all items that use this subcategory
+            const items = loadItems();
+            items.forEach(item => {
+                if (item.category === categoryName && item.subcategory === oldName) {
+                    item.subcategory = trimmedName;
+                }
+            });
+            
+            saveCategories(categories);
+            saveItems(items);
+            displayCategories();
+            
+            alert('Subcategory updated successfully!');
+        }
+        
         // Add subcategory
         function addSubcategoryPrompt(categoryIndex) {
             const name = prompt('Enter subcategory name:');
             if (!name) return;
+            
+            const emoji = prompt('Enter emoji for this subcategory (optional):\n\nPopular choices:\n👕 T-Shirts  👔 Dress Shirts  🧥 Jackets\n👖 Jeans  👗 Dresses  👠 Heels\n👟 Sneakers  🩳 Shorts  👘 Traditional\n🧣 Scarves  🎩 Hats  👜 Bags\n🕶️ Sunglasses  ⌚ Watches  💍 Jewelry');
             
             const target = prompt('Enter target number (optional, leave empty for no target):');
             
@@ -1181,6 +1662,7 @@
             
             categories[categoryIndex].subcategories.push({
                 name: name.trim(),
+                emoji: emoji ? emoji.trim() : null,
                 target: target ? parseInt(target) : null
             });
             
@@ -1303,6 +1785,7 @@
                     
                     if (saveItems(items)) {
                         alert(`Successfully imported ${imported} items!`);
+                        populateDataLists();
                         displayItems();
                         updateStats();
                     }
@@ -1338,6 +1821,17 @@
         setupTagInput();
         updateCategorySelect();
         updateCategoryFilter();
+        updateSubcategoryFilter();
+        populateDataLists();
+        
+        // Populate initial tag list
+        if (window.availableTags) {
+            const tagList = document.getElementById('tagList');
+            if (tagList) {
+                tagList.innerHTML = window.availableTags.map(t => `<option value="${t}">`).join('');
+            }
+        }
+        
         displayItems();
         updateStats();
         
