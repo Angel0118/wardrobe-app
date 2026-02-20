@@ -305,8 +305,8 @@
         }
         
         .item-actions button {
-            flex: 1;
-            min-width: 100px;
+            flex: 1 1 auto;
+            min-width: 90px;
         }
         
         .filter-section {
@@ -605,7 +605,10 @@
             </div>
             
             <div id="overTargetSection" style="margin-bottom: 30px;">
-                <h3 style="color: #C1121F;">⚠️ Over Target Limits (<span id="overTargetCount">0</span>)</h3>
+                <h3 style="color: #C1121F;">⚠️ Over Target Limits - Summary (<span id="overTargetCount">0</span> items to consider)</h3>
+                <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                    Categories and subcategories exceeding their target limits. Click "View Items" to see which specific items to archive.
+                </p>
                 <div class="item-list" id="overTargetList"></div>
             </div>
             
@@ -703,14 +706,12 @@
                 return JSON.parse(stored);
             }
             return [
+                { name: 'Tops', target: null, subcategories: [] },
+                { name: 'Bottoms', target: null, subcategories: [] },
+                { name: 'Dresses', target: null, subcategories: [] },
                 { name: 'Outerwear', target: null, subcategories: [] },
-                { name: 'Jeans, Trousers & Shorts', target: null, subcategories: [] },
-                { name: 'T-shirts, Sweats & Bra Tops', target: null, subcategories: [] },
-                { name: 'Shirts & Blouses', target: null, subcategories: [] },
-                { name: 'Dresses & Skirts', target: null, subcategories: [] },
-                { name: 'Loungewear & Pyjamas', target: null, subcategories: [] },
-                { name: 'Accessories', target: null, subcategories: [] },
-                { name: 'Sport Utility Wear', target: null, subcategories: [] }
+                { name: 'Shoes', target: null, subcategories: [] },
+                { name: 'Accessories', target: null, subcategories: [] }
             ];
         }
         
@@ -1145,6 +1146,7 @@
                     
                     <div class="item-actions">
                         ${!item.archived ? `<button class="button-small" style="background: #669BBC;" onclick="logWear(${item.originalIndex})">Wore Today</button>` : ''}
+                        <button class="button-small" style="background: #003049;" onclick="editItem(${item.originalIndex})">Edit</button>
                         ${!item.archived ? `<button class="button-secondary button-small" onclick="archiveItem(${item.originalIndex})">Archive</button>` : ''}
                         ${item.archived ? `<button class="button-small" onclick="unarchiveItem(${item.originalIndex})">Unarchive</button>` : ''}
                         <button class="button-danger button-small" onclick="deleteItem(${item.originalIndex})">Delete</button>
@@ -1158,16 +1160,54 @@
             const items = loadItems();
             const notWornInYear = getItemsNotWornInYear();
             const highlighted = getItemsToHighlight();
+            const categories = loadCategories();
             
             // Items not worn in 1+ year
             const notWornItems = items
                 .map((item, index) => ({ ...item, originalIndex: index }))
                 .filter(item => !item.archived && notWornInYear.has(item.originalIndex));
             
-            // Items over target
-            const overTargetItems = items
-                .map((item, index) => ({ ...item, originalIndex: index }))
-                .filter(item => !item.archived && highlighted.has(item.originalIndex) && !notWornInYear.has(item.originalIndex));
+            // Get over-target summary by category/subcategory
+            const overTargetSummary = [];
+            
+            categories.forEach(category => {
+                const categoryItems = items.filter(item => item.category === category.name && !item.archived);
+                
+                // Check category-level target
+                if (category.target && categoryItems.length > category.target) {
+                    const excess = categoryItems.length - category.target;
+                    overTargetSummary.push({
+                        category: category.name,
+                        subcategory: null,
+                        target: category.target,
+                        current: categoryItems.length,
+                        excess: excess,
+                        type: 'category'
+                    });
+                }
+                
+                // Check subcategory-level targets
+                if (category.subcategories) {
+                    category.subcategories.forEach(subcategory => {
+                        if (subcategory.target) {
+                            const subcategoryItems = categoryItems.filter(item => item.subcategory === subcategory.name);
+                            
+                            if (subcategoryItems.length > subcategory.target) {
+                                const excess = subcategoryItems.length - subcategory.target;
+                                overTargetSummary.push({
+                                    category: category.name,
+                                    subcategory: subcategory.name,
+                                    emoji: subcategory.emoji,
+                                    target: subcategory.target,
+                                    current: subcategoryItems.length,
+                                    excess: excess,
+                                    type: 'subcategory'
+                                });
+                            }
+                        }
+                    });
+                }
+            });
             
             // Never worn items added 6+ months ago
             const sixMonthsAgo = new Date();
@@ -1184,17 +1224,90 @@
             
             // Update counts
             document.getElementById('notWornCount').textContent = notWornItems.length;
-            document.getElementById('overTargetCount').textContent = overTargetItems.length;
+            document.getElementById('overTargetCount').textContent = overTargetSummary.reduce((sum, item) => sum + item.excess, 0);
             document.getElementById('neverWornCount').textContent = neverWornItems.length;
             
             // Display not worn items
             displaySuggestionList(notWornItems, 'notWornList');
             
-            // Display over target items
-            displaySuggestionList(overTargetItems, 'overTargetList');
+            // Display over target summary
+            displayOverTargetSummary(overTargetSummary);
             
             // Display never worn items
             displaySuggestionList(neverWornItems, 'neverWornList');
+        }
+        
+        // Display over target summary
+        function displayOverTargetSummary(summary) {
+            const list = document.getElementById('overTargetList');
+            
+            if (summary.length === 0) {
+                list.innerHTML = '<div class="empty-state" style="padding: 20px;">All categories within target limits! 🎉</div>';
+                return;
+            }
+            
+            list.innerHTML = summary.map((item) => {
+                const displayName = item.type === 'subcategory' 
+                    ? `${item.emoji ? item.emoji + ' ' : ''}${item.subcategory}`
+                    : item.category;
+                
+                const fullPath = item.type === 'subcategory'
+                    ? `${item.category} > ${item.subcategory}`
+                    : item.category;
+                
+                return `
+                <div class="item-card" style="border-left: 4px solid #C1121F;">
+                    <div class="item-header">
+                        <div class="item-name">${displayName}</div>
+                        <span class="item-badge warning">${item.excess} over target</span>
+                    </div>
+                    
+                    <div class="item-details">
+                        <div class="item-detail">
+                            <div class="item-detail-label">Path</div>
+                            <div class="item-detail-value">${fullPath}</div>
+                        </div>
+                        <div class="item-detail">
+                            <div class="item-detail-label">Current Items</div>
+                            <div class="item-detail-value">${item.current}</div>
+                        </div>
+                        <div class="item-detail">
+                            <div class="item-detail-label">Target</div>
+                            <div class="item-detail-value">${item.target}</div>
+                        </div>
+                        <div class="item-detail">
+                            <div class="item-detail-label">Need to Remove</div>
+                            <div class="item-detail-value" style="color: #C1121F; font-weight: 600;">${item.excess} items</div>
+                        </div>
+                    </div>
+                    
+                    <div class="item-actions">
+                        <button class="button-small" onclick="viewCategoryItems('${item.category}', ${item.subcategory ? `'${item.subcategory}'` : 'null'})">View Items</button>
+                    </div>
+                </div>
+            `}).join('');
+        }
+        
+        // View items in a specific category/subcategory
+        function viewCategoryItems(category, subcategory) {
+            switchTab('wardrobe');
+            
+            // Set filters
+            document.getElementById('filterCategory').value = category;
+            updateSubcategoryFilter();
+            
+            if (subcategory) {
+                document.getElementById('filterSubcategory').value = subcategory;
+            }
+            
+            // Clear other filters
+            document.getElementById('searchText').value = '';
+            document.getElementById('filterColor').value = '';
+            document.getElementById('filterBrand').value = '';
+            document.getElementById('filterTag').value = '';
+            document.getElementById('showArchived').checked = false;
+            
+            displayItems();
         }
         
         // Display suggestion list helper
@@ -1248,6 +1361,7 @@
                     ` : ''}
                     
                     <div class="item-actions">
+                        <button class="button-small" style="background: #003049;" onclick="editItem(${item.originalIndex}); displayArchiveSuggestions();">Edit</button>
                         <button class="button-secondary button-small" onclick="archiveItem(${item.originalIndex}); displayArchiveSuggestions();">Archive</button>
                         <button class="button-danger button-small" onclick="deleteItem(${item.originalIndex}); displayArchiveSuggestions();">Delete</button>
                     </div>
